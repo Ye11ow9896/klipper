@@ -239,6 +239,9 @@ class MCU_digital_out:
         self._max_duration = 2.
         self._last_clock = 0
         self._set_cmd = None
+        # added code
+        self._update_cmd = None
+        #end
     def get_mcu(self):
         return self._mcu
     def setup_max_duration(self, max_duration):
@@ -272,12 +275,19 @@ class MCU_digital_out:
         cmd_queue = self._mcu.alloc_command_queue()
         self._set_cmd = self._mcu.lookup_command(
             "queue_digital_out oid=%c clock=%u on_ticks=%u", cq=cmd_queue)
+        # added code
+        self._update_cmd = self._mcu.lookup_command("update_digital_out oid=%c value=%c",
+                                 cq=cmd_queue)
+        # end
     def set_digital(self, print_time, value):
         clock = self._mcu.print_time_to_clock(print_time)
         self._set_cmd.send([self._oid, clock, (not not value) ^ self._invert],
                            minclock=self._last_clock, reqclock=clock)
         self._last_clock = clock
-
+    # added code
+    def update_digital(self, value):
+        self._update_cmd.send([self._oid, value])
+    # end
 class MCU_pwm:
     def __init__(self, mcu, pin_params):
         self._mcu = mcu

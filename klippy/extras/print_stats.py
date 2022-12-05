@@ -4,14 +4,22 @@
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
 
+# handler events:
+# print_stats:printing
+# print_stats:error
+# print_stats:standby
+# print_stats:cancelled
+# print_stats:paused
+# print_stats:complete
+
 class PrintStats:
     def __init__(self, config):
-        printer = config.get_printer()
-        self.gcode_move = printer.load_object(config, 'gcode_move')
-        self.reactor = printer.get_reactor()
+        self.printer = config.get_printer()
+        self.gcode_move = self.printer.load_object(config, 'gcode_move')
+        self.reactor = self.printer.get_reactor()
         self.reset()
         # Register commands
-        self.gcode = printer.lookup_object('gcode')
+        self.gcode = self.printer.lookup_object('gcode')
         self.gcode.register_command(
             "SET_PRINT_STATS_INFO", self.cmd_SET_PRINT_STATS_INFO,
             desc=self.cmd_SET_PRINT_STATS_INFO_help)
@@ -37,6 +45,9 @@ class PrintStats:
         gc_status = self.gcode_move.get_status(curtime)
         self.last_epos = gc_status['position'].e
         self.state = "printing"
+        ### added code 
+        self.printer.send_event("print_stats:printing")
+        ### end added code
         self.error_message = ""
     def note_pause(self):
         if self.last_pause_time is None:
@@ -46,6 +57,9 @@ class PrintStats:
             self._update_filament_usage(curtime)
         if self.state != "error":
             self.state = "paused"
+            ### added code 
+            self.printer.send_event("print_stats:paused")
+            ### end added code
     def note_complete(self):
         self._note_finish("complete")
     def note_error(self, message):
@@ -56,6 +70,9 @@ class PrintStats:
         if self.print_start_time is None:
             return
         self.state = state
+        ### added code 
+        self.printer.send_event("print_stats:" + str(state))
+        ### end added code
         self.error_message = error_message
         eventtime = self.reactor.monotonic()
         self.total_duration = eventtime - self.print_start_time
@@ -85,6 +102,9 @@ class PrintStats:
     def reset(self):
         self.filename = self.error_message = ""
         self.state = "standby"
+        ### added code 
+        self.printer.send_event("print_stats:standby")
+        ### end added code
         self.prev_pause_duration = self.last_epos = 0.
         self.filament_used = self.total_duration = 0.
         self.print_start_time = self.last_pause_time = None
