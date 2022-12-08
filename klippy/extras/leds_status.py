@@ -85,9 +85,9 @@ class LEDsStatus:
             gcmd.respond_info(response)
 
     def cmd_setPin_box(self, gcmd):
-        response = ("set pin value = " + str(self.leds['box'].start_value))
-        self.leds['box'].update_digital(self.leds['box'].start_value)
-        self.leds['box'].start_value = not self.leds['box'].start_value
+        response = ("set pin value = " + str(self.leds['heater_box'].start_value))
+        self.leds['heater_box'].update_digital(ON)
+        #self.leds['heater_box'].start_value = not self.leds['heater_box'].start_value
         gcmd.respond_info(response)
 
     def _check_heaters(self, eventtime):

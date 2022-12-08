@@ -276,8 +276,7 @@ class MCU_digital_out:
         self._set_cmd = self._mcu.lookup_command(
             "queue_digital_out oid=%c clock=%u on_ticks=%u", cq=cmd_queue)
         # added code
-        self._update_cmd = self._mcu.lookup_command("update_digital_out oid=%c value=%c",
-                                 cq=cmd_queue)
+        self._update_cmd = self._mcu.lookup_command("update_digital_out oid=%c value=%c", cq=cmd_queue)
         # end
     def set_digital(self, print_time, value):
         clock = self._mcu.print_time_to_clock(print_time)
