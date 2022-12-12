@@ -1,9 +1,7 @@
-from heaters import Heater
-
 ON = 1
 OFF = 0
 
-class SetupPin(Heater):
+class SetupPin:
     def __init__(self, config, pin_name):
         ppins = config.get_printer().lookup_object('pins')
         self.start_value = bool(0)
@@ -18,7 +16,6 @@ class SetupPin(Heater):
     def update_digital(self, value):
         self.pin_obj.update_digital(value)
         self.start_value = value
-
 
 class LEDsStatus:
     def __init__(self, config):
