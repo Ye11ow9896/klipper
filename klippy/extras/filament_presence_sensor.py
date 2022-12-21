@@ -8,22 +8,20 @@ class FilamentPresenceSensor:
         self.name = config.get_name().split()[-1]
         self.pin1 = config.get('sens_pin_1')
         self.pin2 = config.get('sens_pin_2')
-        self.voltage_empty_sens_1 = config.getfloat('voltage_empty_sens_1') + 0.15
-        self.voltage_empty_sens_2 = config.getfloat('voltage_empty_sens_2') + 0.15
+        self.error = config.getfloat('error')
+        self.voltage_empty_sens_1 = config.getfloat('voltage_empty_sens_1', 2.05, minval=0., maxval=6.) + self.error
+        self.voltage_empty_sens_2 = config.getfloat('voltage_empty_sens_2', 1.69, minval=0., maxval=6.) + self.error
 
         #variables
         self.voltage_value1 = 0 
         self.voltage_value2 = 0
-        self.is_printing = False
         self.is_filament_presence_sens_1 = False
         self.is_filament_presence_sens_2 = False
         self.filament_is_over = False
 
         #printer object
         self.ppins = self.mcu_adc = None
-        self.printer.register_event_handler('idle_timeout:printing', self.handle_printing)
-        self.printer.register_event_handler('idle_timeout:ready', self.handle_not_printing)
-        self.printer.register_event_handler('idle_timeout:idle', self.handle_not_printing)
+        self.printer.register_event_handler('idle_timeout:ready', self._handle_ready)
 
         #Start ADC
         self.ppins = self.printer.lookup_object('pins')
@@ -39,12 +37,14 @@ class FilamentPresenceSensor:
         self.gcode.register_mux_command("VOLTAGE_VALUE_SENSOR", "SENSOR", 
                                             self.name, self.cmd_GetValADC)
 
-    #Init
-    def handle_printing(self, print_time):
-        self.is_printing = True
+        self.gcode.register_mux_command("CALIBRATE", "SENSOR", 
+                                            self.name, self.cmd_CalibrateSensors)
 
-    def handle_not_printing(self, print_time):
-        self.is_printing = False
+    def _handle_ready(self, print_time):
+        if self.voltage_value1 <= self.voltage_empty_sens_1:
+            self.voltage_empty_sens_1 = self.voltage_value1 + self.error
+        if self.voltage_value2 <= self.voltage_empty_sens_2:
+            self.voltage_empty_sens_2 = self.voltage_value2 + self.error
 
     def adc_callback1(self, read_time, read_value):
         self.voltage_value1 = round(read_value * 3.24, 2)
@@ -54,16 +54,6 @@ class FilamentPresenceSensor:
         else:
             self.is_filament_presence_sens_1 = False
 
-        #if self.is_printing and self.voltage_value1 < 2:
-        #    self.gcode.run_script('PAUSE')
-        #    self.filament_is_over = True
-        #    #self.is_filament_presence_sens_1 = False
-        #if not self.is_printing and self.voltage_value1 >= 2 and self.filament_is_over == True:
-        #    self.gcode.run_script('RESUME')
-        #    self.filament_is_over = False
-        #    #self.is_filament_presence_sens_1 = True
-
-
     def adc_callback2(self,read_time, read_value):
         self.voltage_value2 = round(read_value * 3.24, 2)
 
@@ -72,12 +62,26 @@ class FilamentPresenceSensor:
         else:
             self.is_filament_presence_sens_2 = False
         
-
     def cmd_GetValADC(self, gcmd):
-        response = ("Voltage sensor 1: " + str(self.voltage_value1) + "v. Status: " + str(self.is_filament_presence_sens_1) + ' ')
-        response += ("Voltage sensor 2: "  + str(self.voltage_value2) + "v. Status: " + str(self.is_filament_presence_sens_2) )
+        response = ("Voltage sensor 1: " + str(self.voltage_value1) + "v. Status: " + str(self.is_filament_presence_sens_1) + ' \n')
+        response += ("Voltage empty sensor 1: " + str(self.voltage_empty_sens_1) + '\n')
+        response += ("Voltage sensor 2: "  + str(self.voltage_value2) + "v. Status: " + str(self.is_filament_presence_sens_2) + '\n')
+        response += ("Voltage empty sensor 2: " + str(self.voltage_empty_sens_2) + '\n')
         
         gcmd.respond_info(response)
+
+    def cmd_CalibrateSensors(self, gcmd):
+        fullname = ("filament_presence_sensor " + str(self.name))
+
+        configfile = self.printer.lookup_object('configfile')
+        configfile.set(fullname, 'voltage_empty_sens_1', "%.2f" % (self.voltage_value1,))
+        configfile.set(fullname, 'voltage_empty_sens_2', "%.2f" % (self.voltage_value2,))
+
+        gcmd.respond_info(
+            "New voltage value on empty sensors: \n" 
+            "sensor 1: %.2f V; sensor 2: %.2f V \n"  
+            "The SAVE_CONFIG command will update the printer config file\n"
+            "with these parameters and restart the printer." % (self.voltage_value1, self.voltage_value2))
 
     def get_status(self, eventtime):
         return {
@@ -87,3 +91,5 @@ class FilamentPresenceSensor:
 
 def load_config_prefix(config):
     return FilamentPresenceSensor(config)
+
+
