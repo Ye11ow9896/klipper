@@ -40,6 +40,11 @@ class SignalServo:
         print_time = self.printer.lookup_object('toolhead').get_last_move_time()
         self.duty_cycle = (1./self.period) * self.close_pulse
         self.sig.set_pwm(print_time, 1 - self.duty_cycle)
+
+    def no_signal(self):
+        print_time = self.printer.lookup_object('toolhead').get_last_move_time()
+        self.duty_cycle = (1./self.period) * self.close_pulse
+        self.sig.set_pwm(print_time, 0)
     
 
 class DoorControl:
@@ -50,22 +55,24 @@ class DoorControl:
         self.pheaters = self.printer.load_object(config, 'heaters')
         self.reactor = self.printer.get_reactor()
 
-        gcode = self.printer.lookup_object('gcode')
-        gcode.register_command('TEST', self.cmd_TEST)
+        #gcode = self.printer.lookup_object('gcode')
+        #gcode.register_command('TEST', self.cmd_TEST)
 
         self.printer.register_event_handler('klippy:ready', self._handle_ready_klippy)
 
-    def cmd_TEST(self, gcmd):
-        res = (" ")
-        if self._endstop_status():
-            res += ("end status worked!" + '\n')
-            if self.heater_box.get_temp(0)[0] >= SAFE_BOX_TEMP:    
-                res += ("CLOSE" + '\n')
-            else:
-                res += ("OPEN" + '\n')
-        res += (str(self._endstop_status()) + '\n')
-        res += (str(self.heater_box.get_temp(0)[0]))
-        gcmd.respond_info(res)
+    #def cmd_TEST(self, gcmd):
+    #    res = (" ")
+    #    if self._endstop_status():
+    #        res += ("end status worked!" + '\n')
+    #        if self.heater_box.get_temp(0)[1] >= SAFE_BOX_TEMP:    
+    #            res += ("CLOSE SIGNAL" + '\n')
+    #        else:
+    #            res += ("OPEN SIGNAL" + '\n')
+    #    else:
+    #        res += ("NO SIGNAL")
+    #    res += (str(self._endstop_status()) + '\n')
+    #    res += (str(self.heater_box.get_temp(0)[0]))
+    #    gcmd.respond_info(res)
 
     def _handle_ready_klippy(self):
         self.heater_box = self.pheaters.lookup_heater('heater_box')
@@ -76,11 +83,13 @@ class DoorControl:
         return bool(self.endstop.get_status()['state'])
 
     def _check_sensors(self, eventtime):
-        if self._endstop_status():
-            if self.heater_box.get_temp(0)[0] >= SAFE_BOX_TEMP:    
+        if self._endstop_status(): # door closed
+            if self.heater_box.get_temp(0)[1] >= SAFE_BOX_TEMP:    
                 self.signal.close_door()
             else:
                 self.signal.open_door()
+        else:  # door opened
+            self.signal.no_signal()
         return eventtime + .5
     
 def load_config(config):
